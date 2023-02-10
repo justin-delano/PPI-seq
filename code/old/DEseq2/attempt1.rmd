@@ -1,0 +1,24 @@
+library(DESeq2)
+library(ggplot2)
+library(htmltools)
+library(stringr)
+rawCounts = read.delim("0922_PPIseqdata_editedreads.csv", header=TRUE, sep=",", row.names = 1)
+rawCounts[] = lapply(rawCounts, as.numeric)
+rawCounts[is.na(rawCounts)] = 1
+rawCounts[rawCounts==0] = 1
+coldata = data.frame(colnames(rawCounts))
+colnames(coldata) = c("colname")
+coldata$tag = coldata$colname %>%
+    strsplit("[.]") %>%
+    sapply("[", 2 )
+
+deseq2Data <- DESeqDataSetFromMatrix(countData=rawCounts, colData=coldata, design = ~tag)
+deseq2Data = DESeq(deseq2Data)
+res <- results(deseq2Data)
+
+<!-- summary(results(deseq2Data, contrast=c("tag", "NES", "GOL"))) -->
+res <- res[order(res$padj),]
+head(res,10)
+
+<!-- http://master.bioconductor.org/packages/release/workflows/vignettes/rnaseqGene/inst/doc/rnaseqGene.html#experimental-data -->
+<!-- https://lashlock.github.io/compbio/R_presentation.html -->
