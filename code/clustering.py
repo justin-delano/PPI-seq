@@ -38,9 +38,9 @@ def flatten_rep_cols(data: pd.DataFrame, func: Callable) -> pd.DataFrame:
     flat_df = pd.DataFrame(index=data.index)
     tags = {str(col).split("_", maxsplit=1)[0] for col in data.columns}
     for tag in tags:
-        flat_df[f"ABE-{tag}"] = data.filter(regex=f"(?=.*{tag})(?=.*{'3H'})", axis=1).apply(
-            func, raw=True, axis=1
-        )
+        flat_df[f"ABE-{tag}"] = data.filter(
+            regex=f"(?=.*{tag})(?=.*{'3H'})", axis=1
+        ).apply(func, raw=True, axis=1)
     return flat_df
 
 
@@ -128,8 +128,14 @@ for algo in [ward, complete, average, single]:
 # single replicate or combine replicates?
 # rank normalized clustering (k-medians/manhattan)?
 sum(
-    "ABE-" + test_data.rank(axis=1, pct=True).idxmax(axis=1).str.split("_", n=1, expand=True)[0]
+    "ABE-"
+    + test_data.rank(axis=1, pct=True)
+    .idxmax(axis=1)
+    .str.split("_", n=1, expand=True)[0]
     == data["10/28"]["bin_lab"].loc[test_data.index, :].idxmax(axis=1)
 ) / len(test_data.index)
 
 # %%
+x = []
+for y in [1, 2, 3]:
+    x.append(y)
