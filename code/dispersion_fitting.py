@@ -14,10 +14,10 @@ import statsmodels.formula.api as smf
 
 def get_mean_normalized_count_per_guide(X: pd.DataFrame, size_factor=10_000):
     depth = X.sum(axis=0)
-    return ((X + 1) / (depth[None, :].divide(size_factor))).mean(axis=1)
+    return ((X + 1) / np.divide(depth[None, :], size_factor)).mean(axis=1)
 
 
-def _fit_dispersion_each(y, design_matrix, fit_aux_ols=True):
+def _fit_dispersion_each(y: pd.Series, design_matrix, fit_aux_ols=True):
     """
     y: guide count observation
     design_matrix: design matrix for each observation with covariates
@@ -25,11 +25,11 @@ def _fit_dispersion_each(y, design_matrix, fit_aux_ols=True):
     if (y == 0).all():
         return np.nan
     # Fit Poisson model
+    # try:
     sm_fit = sm.GLM(
         y,
         design_matrix,
         family=sm.families.NegativeBinomial(alpha=0.01, link=sm.families.links.log()),
-        missing="drop",
     ).fit()
 
     if not fit_aux_ols:
@@ -39,6 +39,9 @@ def _fit_dispersion_each(y, design_matrix, fit_aux_ols=True):
     df_aux_ols = pd.DataFrame({"y": y_aux_ols, "x": x_aux_ols})
     aux_ols_results = smf.ols("y ~ x - 1", df_aux_ols).fit()
     return aux_ols_results.params[0]
+    # except:
+    #     print("Fitting error:", y.name)
+    #     return np.nan
 
 
 def fit_dispersion_all(X: pd.DataFrame, design_matrix) -> np.ndarray:
@@ -67,9 +70,7 @@ def fit_dispersion_trend(alphas: Iterable, guide_mean: pd.Series):
     guide_mean : Normalized mean counts for each guide.
 
     """
-    alpha_trend_df = pd.DataFrame(
-        {"inv_mu": 1 / guide_mean.flatten(), "alphas": alphas}
-    )
+    alpha_trend_df = pd.DataFrame({"inv_mu": 1 / guide_mean, "alphas": alphas})
     return smf.glm(
         formula="alphas ~ 1 + inv_mu",
         data=alpha_trend_df,
@@ -90,7 +91,7 @@ def get_trend_fitted_dispersion(
     design_matrix: pd.DataFrame,
     fit_trend: bool = True,
     min_thres: float = 0.01,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[pd.Series, np.ndarray]:
     """
     Do something similar to DESeq dispersion fitting.
     1. Fit dispersion for each guide.
@@ -114,4 +115,4 @@ def get_trend_fitted_dispersion(
     # Here, trend-fitted dispersion values are used for guides with invalid dispersion estimates
     invalid_disp_idx = np.where((alphas < min_thres) | np.isnan(alphas))[0]
     alphas[invalid_disp_idx] = fitted_alpha[invalid_disp_idx]
-    return (alphas, disp_var_est)
+    return (pd.Series(alphas), disp_var_est)
