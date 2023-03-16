@@ -15,7 +15,7 @@ def make_q_design_matrix(date: str, reps: list[str]):
     design_matrix = pd.DataFrame(
         0,
         index=read_data.columns,
-        columns=["Baseline", "1H", "3H", "EditEnriched"] + tags + reps,
+        columns=["Baseline"] + reps + ["1H", "3H", "EditEnriched"] + tags,
     )
 
     design_matrix["Baseline"] = 1

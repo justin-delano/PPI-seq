@@ -14,7 +14,7 @@ import statsmodels.formula.api as smf
 
 def get_mean_normalized_count_per_guide(X: pd.DataFrame, size_factor=10_000):
     depth = X.sum(axis=0)
-    return ((X + 1) / np.divide(depth[None, :], size_factor)).mean(axis=1)
+    return ((X + 1) / np.divide(depth.values[None, :], size_factor)).mean(axis=1)
 
 
 def _fit_dispersion_each(y: pd.Series, design_matrix, fit_aux_ols=True):
@@ -25,23 +25,25 @@ def _fit_dispersion_each(y: pd.Series, design_matrix, fit_aux_ols=True):
     if (y == 0).all():
         return np.nan
     # Fit Poisson model
-    # try:
-    sm_fit = sm.GLM(
-        y,
-        design_matrix,
-        family=sm.families.NegativeBinomial(alpha=0.01, link=sm.families.links.log()),
-    ).fit()
+    try:
+        sm_fit = sm.GLM(
+            y,
+            design_matrix,
+            family=sm.families.NegativeBinomial(
+                alpha=0.01, link=sm.families.links.log()
+            ),
+        ).fit()
 
-    if not fit_aux_ols:
-        return sm_fit.mu
-    y_aux_ols = ((y - sm_fit.mu) ** 2 - sm_fit.mu) / sm_fit.mu
-    x_aux_ols = sm_fit.mu
-    df_aux_ols = pd.DataFrame({"y": y_aux_ols, "x": x_aux_ols})
-    aux_ols_results = smf.ols("y ~ x - 1", df_aux_ols).fit()
-    return aux_ols_results.params[0]
-    # except:
-    #     print("Fitting error:", y.name)
-    #     return np.nan
+        if not fit_aux_ols:
+            return sm_fit.mu
+        y_aux_ols = ((y - sm_fit.mu) ** 2 - sm_fit.mu) / sm_fit.mu
+        x_aux_ols = sm_fit.mu
+        df_aux_ols = pd.DataFrame({"y": y_aux_ols, "x": x_aux_ols})
+        aux_ols_results = smf.ols("y ~ x - 1", df_aux_ols).fit()
+        return aux_ols_results.params[0]
+    except Exception:
+        print("Fitting error:", y.name)
+        return np.nan
 
 
 def fit_dispersion_all(X: pd.DataFrame, design_matrix) -> np.ndarray:
