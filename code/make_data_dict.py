@@ -1,6 +1,6 @@
 import pickle as pkl
 
-import dispersion_fitting
+# import dispersion_fitting
 import helper_functions as hf
 import numpy as np
 import pandas as pd
@@ -33,17 +33,17 @@ def get_size_factors(X: pd.DataFrame, use_geom: bool = False) -> np.ndarray:
 
 def main():
     """Main function"""
-    dates_reps = {
-        "1028": ["REPA_", "REPB_", "REPC_"],
-        "1115": ["REPA_", "REPB_", "REPC_"],
+    dates = {
+        "1028",
+        "1115",
     }
-    for date, reps in dates_reps.items():
+    for date in dates:
         data_path = f"/data/pinello/PROJECTS/2022_PPIseq/data/{date}/{date}"
 
         reads = pd.read_excel(f"{data_path}_reads.xlsx", index_col=0)
         editfracs = pd.read_excel(f"{data_path}_editfrac.xlsx", index_col=0)
-        pyro_design = pd.read_excel(f"{data_path}_pyro_design.xlsx", index_col=0)
-        disp_design = pd.read_excel(f"{data_path}_disp_design.xlsx", index_col=0)
+        q_design = pd.read_excel(f"{data_path}_q_design.xlsx", index_col=0)
+        pi_design = pd.read_excel(f"{data_path}_pi_design.xlsx", index_col=0)
         groundtruth_labels = pd.read_excel(f"{data_path}_str_labels.xlsx", index_col=0)
 
         reads.drop(
@@ -62,49 +62,43 @@ def main():
         reads = reads.loc[groundtruth_indices]
         editfracs = editfracs.loc[groundtruth_indices]
 
-        reads_edited_final = torch.zeros(
-            size=[len(reps), len(reads.index), len(pyro_design.index)]
-        )
-        reads_unedited_final = torch.zeros(
-            size=[len(reps), len(reads.index), len(pyro_design.index)]
-        )
+        # dispersions = torch.zeros(size=[len(reads.index), len(pyro_design.index)])
 
-        size_factors = torch.zeros(size=[len(reps), len(pyro_design.index)])
-        dispersions = torch.zeros(size=[len(reads.index), len(pyro_design.index)])
+        # ! this is super broken
+        # TODO: dispersion per experiment?
+        # for exp_num, exp in enumerate(pyro_design.index):
+        #     exp_cols = hf.get_matching_replicates(
+        #         general_sample=exp, all_samples=reads.columns, replicates=reps
+        #     )
 
-        # ! this is super broken, probably due to small number of replicates
-        for exp_num, exp in enumerate(pyro_design.index):
-            exp_cols = hf.get_matching_replicates(
-                general_sample=exp, all_samples=reads.columns, replicates=reps
-            )
+        #     print(reads[exp_cols].fillna(0) + 0.5)
+        #     print(pyro_design.loc[exp])
+        #     # bkleh
+        #     dispersions[:, exp_num] = torch.from_numpy(
+        #         dispersion_fitting.get_trend_fitted_dispersion(
+        #             reads[exp_cols].fillna(0) + 0.5,
+        #             pyro_design.loc[exp],
+        #         )[0].values
+        #     )
+        # dispersions = torch.from_numpy(
+        #     dispersion_fitting.get_trend_fitted_dispersion(
+        #         reads.fillna(0) + 0.5,
+        #         disp_design,
+        #     )[0].values
+        # )
 
-            print(reads[exp_cols].fillna(0) + 0.5)
-            print(disp_design.loc[disp_design.index.isin(exp_cols)])
-            # bkleh
-            dispersions[:, exp_num] = torch.from_numpy(
-                dispersion_fitting.get_trend_fitted_dispersion(
-                    reads[exp_cols].fillna(0) + 0.5,
-                    disp_design.loc[disp_design.index.isin(exp_cols)],
-                )[0].values
-            )
+        reads_edited = np.around(reads.values * editfracs.values)
+        reads_unedited = reads.values - reads_edited
 
-        for rep_num, rep in enumerate(reps):
-            reads_rep = reads[hf.str_subs(reads.columns, rep)]
-            editfracs_rep = editfracs[hf.str_subs(editfracs.columns, rep)]
-
-            reads_edited = np.around(reads_rep.values * editfracs_rep.values)
-            reads_unedited = reads_rep.values - reads_edited
-
-            reads_edited_final[rep_num, :, :] = torch.from_numpy(reads_edited)
-            reads_unedited_final[rep_num, :, :] = torch.from_numpy(reads_unedited)
-            size_factors[rep_num, :] = torch.from_numpy(get_size_factors(reads_rep))
+        # ! fix nans in reads
 
         data_dict = {
-            "reads_edited": reads_edited_final,
-            "reads_unedited": reads_unedited_final,
-            "size_factors": size_factors,
-            "fit_dispersions": dispersions,
-            "design_matrix": pyro_design,
+            "reads_edited": torch.from_numpy(reads_edited.T.fillna(0)),
+            "reads_unedited": torch.from_numpy(reads_unedited.T.fillna(0)),
+            "size_factors": torch.from_numpy(get_size_factors(reads)),
+            "fit_dispersions": torch.from_numpy(get_size_factors(reads)),
+            "q_design_matrix": torch.from_numpy(q_design.values).float(),
+            "pi_design_matrix": torch.from_numpy(pi_design.values).float(),
         }
 
         with open(f"{data_path}_pyro_dict.pkl", "wb") as file:
