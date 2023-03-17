@@ -13,7 +13,8 @@ def get_size_factors(X: pd.DataFrame, use_geom: bool = False) -> np.ndarray:
 
     Args:
         X (np.array): Count data from full experiment
-        use_geom (bool, optional): Whether to replace arithmetic mean with geometric mean. Defaults to False.
+        use_geom (bool, optional): Whether to replace arithmetic mean with geometric
+            mean. Defaults to False.
 
     Returns:`
         np.array: Size factors per experiment
@@ -62,27 +63,24 @@ def main():
         editfracs = editfracs[groundtruth_indices]
         reads_edited = np.around(reads.values * editfracs.values)
         reads_unedited = reads.values - reads_edited
-        size_factors = torch.from_numpy(get_size_factors(reads.T)).unsqueeze(-1)
+        size_factors = torch.tensor(get_size_factors(reads.T)).unsqueeze(-1)
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            dispersions = (
-                torch.from_numpy(
-                    dispersion_fitting.get_trend_fitted_dispersion(
-                        reads.T,
-                        q_design,
-                    )[0].values
-                )
-                .unsqueeze(-1)
-                .T
-            )
+            dispersions = dispersion_fitting.get_trend_fitted_dispersion(
+                reads.T,
+                q_design,
+            )[0].values
+
+            dispersions = torch.tensor(dispersions[0].values).unsqueeze(-1).T
 
         data_dict = {
-            "reads_edited": torch.from_numpy(reads_edited),
-            "reads_unedited": torch.from_numpy(reads_unedited),
+            "reads_edited": torch.tensor(reads_edited),
+            "reads_unedited": torch.tensor(reads_unedited),
             "size_factors": size_factors,
             "fit_dispersions": dispersions,
-            "q_design_matrix": torch.from_numpy(q_design.values),
-            "pi_design_matrix": torch.from_numpy(pi_design.values),
+            "q_design_matrix": torch.tensor(q_design.values),
+            "pi_design_matrix": torch.tensor(pi_design.values),
         }
 
         with open(f"{data_path}_pyro_dict.pkl", "wb") as file:
